@@ -1,0 +1,206 @@
+#!/bin/bash
+
+# ----------------------------------------------------------------FOLDERS----------------------------------------------------------------
+
+usearch10="usearch10.0.240_i86osx64"
+usearch8="usearch8"
+raw_seqs="Combined"
+read_summary="1_read_summary"
+merged_seqs="2a_merged_seqs"
+fwd_not_merged="2b_fwd_not_merged"
+rev_not_merged="2c_rev_not_merged"
+matched="3a_primers_matched"
+not_matched="3b_primer_mismatches"
+truncated_seqs="4a_primers_seqs_truncated"
+primers_stripped="4b_primers_stripped"
+fastq_quality_stats="5_quality_statistics"
+
+# ------------------------------------------------------MODIFIABLE PARAMETERS------------------------------------------------------------
+
+# STEP 2. MERGING PAIRED-END READS
+MINIMUM_MERGE_LENGTH="20"
+MINIMUM_OVERLAP_LENGTH="20"
+MAXIMUM_NT_DIFFERENCES="20"
+MAXIMUM_OVERLAP_LENGTH="502"
+
+# STEP 3. SEARCHING FOR PRIMER SEQUENCES
+FWD_PRIMER_DATABASE="forward_primer.fasta"
+REV_PRIMER_DATABASE="reverse_primer.fasta"
+PRIMER_NT_MISMATCHES="3"
+
+# STEP 4A. TRUNCATING PRIMERS
+BASES_FROM_LEFT="23"
+BASES_FROM_RIGHT="22"
+
+# STEP 4B. STRIPPING PRIMERS
+primer_stripping_database="forward_and_reverse_primer.fasta" 
+MINIMUM_AMPLICON_SIZE="0"
+MAXIMUM_AMPLICON_SIZE="1000"
+
+# STEP 5. PREPARING FOR QUALITY FILTERING
+LENGTH_CUTOFFS="50,*,50"
+EE_CUTOFFS="0.5,1.0,1.5,2.0"
+
+# ----------------------------------------------------------STARTING ANALYSIS----------------------------------------------------------
+
+echo ""
+figlet Starting Analysis                                                                                                                                                                                  
+echo ""
+
+# -------------------------------------------------------------READ SUMMARY-------------------------------------------------------------
+
+echo ""
+figlet -f bubble Step 1 
+figlet -f small Read Summary                                                                                                                                                                                  
+echo ""
+
+echo ""
+figlet -f digital CREATING READ SUMMARY DIRECTORY
+echo ""
+
+mkdir $read_summary
+
+echo ""
+figlet -f digital FORWARD READ SUMMARY 
+echo ""
+
+$usearch10 -fastx_info $raw_seqs/*R1*.fastq -output $read_summary/1a_fwd_fastq_info.txt
+
+echo ""
+figlet -f digital REVERSE READ SUMMARY
+echo ""
+
+$usearch10 -fastx_info $raw_seqs/*R2*.fastq -output $read_summary/1b_rev_fastq_info.txt
+
+echo ""
+figlet -f digital OUTPUT FILES: 
+echo $read_summary
+echo 1a_fwd_fastq_info.txt
+echo 1b_rev_fastq_info.txt
+echo ""
+
+# -------------------------------------------------------MERGING PAIRED-END READS-------------------------------------------------------
+
+echo ""
+figlet -f bubble Step 2 
+figlet -f small Merging paired-end reads                                                                                                                                                                                  
+echo ""
+
+echo ""
+figlet -f digital CREATING MERGED AND UNMERGED SEQUENCE DIRECTORIES
+echo ""
+
+mkdir $merged_seqs
+mkdir $fwd_not_merged
+mkdir $rev_not_merged
+
+echo ""
+figlet -f digital MERGING PAIRED-END READS
+echo ""
+
+$usearch10 -fastq_mergepairs $raw_seqs/*R1*.fastq -reverse $raw_seqs/*R2*.fastq -relabel @ -fastq_maxdiffs $MAXIMUM_NT_DIFFERENCES -fastq_minovlen $MINIMUM_OVERLAP_LENGTH \
+-fastq_minmergelen $MINIMUM_MERGE_LENGTH -fastq_maxmergelen $MAXIMUM_OVERLAP_LENGTH -fastqout $merged_seqs/merged.fq -fastqout_notmerged_fwd $fwd_not_merged/not_merged_fwd.fq \
+-fastqout_notmerged_rev $rev_not_merged/not_merged_rev.fq -report $merged_seqs/2d_merging_seqs_report.txt -tabbedout $merged_seqs/2e_tabbedout.txt \
+-alnout $merged_seqs/2f_aln.txt 
+
+echo ""
+figlet -f digital OUTPUT FILES: 
+echo $merged_seqs
+echo $fwd_not_merged
+echo $rev_not_merged
+echo 2d_merging_seqs_report.txt  
+echo 2e_tabbedout.txt 
+echo 2f_aln.txt 
+echo ""
+
+# ------------------------------------------------------SEARCHING FOR PRIMERS------------------------------------------------------------
+
+echo ""
+figlet -f bubble Step 3 
+figlet -f small Searching primers                                                                                                                                                                                  
+echo ""
+
+echo ""
+figlet -f digital CREATING DIRECTORIES FOR SEQUENCES WITH AND WITHOUT PRIMERS
+echo ""
+
+mkdir $matched
+mkdir $not_matched
+
+echo ""
+figlet -f digital SEARCHING FOR PRIMERS
+echo ""
+$usearch10 -search_oligodb $merged_seqs/merged.fq -db $FWD_PRIMER_DATABASE -strand both -userout 3c_forward_primer_search.txt -userfields query+target+qstrand+diffs+tlo+thi+trowdots -maxdiffs $PRIMER_NT_MISMATCHES -matchedfq $matched/forward_primer_only.fq -notmatchedfq $not_matched/no_forward_primer.fq
+
+$usearch10 -search_oligodb $matched/forward_primer_only.fq -db $REV_PRIMER_DATABASE -strand both -userout 3d_reverse_primer_search.txt -userfields query+target+qstrand+diffs+tlo+thi+trowdots -maxdiffs $PRIMER_NT_MISMATCHES -matchedfq $matched/forward_and_reverse.fq -notmatchedfq $not_matched/no_forward_or_reverse.fq
+
+$usearch10 -search_oligodb $not_matched/no_forward_primer.fq -db $REV_PRIMER_DATABASE -strand both -userout 3e_reverse_primer_search_2.txt -userfields query+target+qstrand+diffs+tlo+thi+trowdots -maxdiffs $PRIMER_NT_MISMATCHES -matchedfq $matched/reverse_primer_only.fq -notmatchedfq $not_matched/no_forward_or_reverse_2.fq
+
+echo ""
+figlet -f digital OUTPUT FILES: 
+echo $matched
+echo forward_primer_only.fq
+echo forward_and_reverse.fq
+echo reverse_primer_only.fq
+echo $not_matched
+echo no_forward_primer.fq
+echo no_forward_or_reverse.fq
+echo no_forward_or_reverse_2.fq
+echo 3c_forward_primer_search.txt 
+echo 3d_reverse_primer_search.txt
+echo 3e_reverse_primer_search_2.txt
+echo ""
+
+# ------------------------------------------------------------TRIMMING PRIMERS-----------------------------------------------------------
+
+echo ""
+figlet -f bubble Step 4
+figlet -f small Trimming primers                                                                                                                                                                                 
+echo ""
+
+echo ""
+figlet -f digital CREATING PRIMER-TRIMMED SEQUENCE DIRECTORY
+echo ""
+
+
+
+mkdir $primers_stripped
+mkdir $truncated_seqs
+
+$usearch10 -fastx_truncate $matched/forward_and_reverse.fq -stripleft $BASES_FROM_LEFT -stripright $BASES_FROM_RIGHT -fastqout $truncated_seqs/primers_truncated.fq
+
+$usearch8 -search_pcr $matched/forward_and_reverse.fq -db $primer_stripping_database -strand both -maxdiffs $PRIMER_NT_MISMATCHES -minamp $MINIMUM_AMPLICON_SIZE -maxamp $MAXIMUM_AMPLICON_SIZE -pcr_strip_primers -ampoutq $primers_stripped/primers_stripped.fq -pcrout $primers_stripped/PCR_hits.txt
+
+
+echo ""
+figlet -f digital OUTPUT FILES:
+echo $trimmed_seqs
+echo ""
+
+# ------------------------------------------------------PREPARING FOR QUALITY FILTERING----------------------------------------------------
+
+echo ""
+figlet -f bubble Step 5
+figlet -f small Determining quality filtering parameters                                                                                                                                                                                 
+echo ""
+
+echo ""
+figlet -f digital CREATING FILTERED SEQUENCE DIRECTORIES
+echo ""
+
+mkdir $fastq_quality_stats
+
+$usearch10 -fastq_eestats2 $truncated_seqs/primers_truncated.fq -output $fastq_quality_stats/truncated_seqs_eestats2.txt -length_cutoffs $LENGTH_CUTOFFS -ee_cutoffs $EE_CUTOFFS
+
+$usearch10 -fastq_eestats2 $matched/forward_and_reverse.fq -output $fastq_quality_stats/primer_stripped_seqs_eestats2.txt -length_cutoffs $LENGTH_CUTOFFS -ee_cutoffs $EE_CUTOFFS
+
+echo ""
+figlet -f digital OUTPUT FILES:
+echo $fastq_quality_stats
+echo fastq_stats.log
+echo 
+echo ""
+
+echo ""
+figlet Review quality statistics before proceeding to quality filtering                                                                                                                                                                                  
+echo ""
