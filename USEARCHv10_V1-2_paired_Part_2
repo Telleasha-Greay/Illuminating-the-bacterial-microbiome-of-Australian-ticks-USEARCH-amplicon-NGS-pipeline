@@ -1,0 +1,186 @@
+#!/bin/bash
+
+# ----------------------------------------------------------------FOLDERS----------------------------------------------------------------
+
+usearch10="usearch10.0.240_i86osx64"
+usearch9.2="usearch9.2.64_i86macOS64"
+usearch8="usearch8"
+matched="3a_primers_matched"
+truncated_seqs="4a_primers_seqs_truncated"
+fasta_seqs_filtered="6a_truncated_seqs_filtered"
+fasta_seqs_discarded="6b_truncated_seqs_discarded"
+unique_seqs="7_unique_seqs"
+no_singletons="8_no_singletons"
+OTUs="9_OTUs"
+ZOTUs="10_ZOTUs"
+otu_table="11_otu_table"
+zotu_table="12_zotu_table"
+
+# ------------------------------------------------------MODIFIABLE PARAMETERS------------------------------------------------------------
+
+# STEP 6. QUALITY FILTERING
+FASTQ_MAXEE="1.0"
+FASTQ_MIN_LENGTH="150"
+
+# --------------------------------------------------------CONTINUING ANALYSIS...--------------------------------------------------------
+
+echo ""
+figlet Starting Analysis                                                                                                                                                                                  
+echo ""
+
+
+# ----------------------------------------------------------QUALITY FILTERING----------------------------------------------------------
+
+echo ""
+figlet -f bubble Step 6
+figlet -f small Quality filtering                                                                                                                                                                                 
+echo ""
+
+echo ""
+figlet -f digital CREATING FILTERED SEQUENCE DIRECTORIES
+echo ""
+
+mkdir $fasta_seqs_filtered
+mkdir $fasta_seqs_discarded
+
+$usearch10 -fastq_filter $truncated_seqs/primers_truncated.fq -fastq_maxee $FASTQ_MAXEE -fastq_minlen $FASTQ_MIN_LENGTH -fastaout $fasta_seqs_filtered/primers_truncated_filtered.fa \
+-fastaout_discarded $fasta_seqs_discarded/primers_truncated_discarded.fa
+
+echo ""
+figlet -f digital OUTPUT FILES:
+echo $fasta_seqs_filtered
+echo $fasta_seqs_discarded
+echo ""
+
+# -------------------------------------------------------DEREPLICATING SEQUENCES-------------------------------------------------------
+
+echo ""
+figlet -f bubble Step 7
+figlet -f small Dereplicating sequences                                                                                                                                                                                 
+echo ""
+
+echo ""
+figlet -f digital CREATING FILTERED SEQUENCE DIRECTORIES
+echo ""
+
+mkdir $unique_seqs
+
+$usearch10 -fastx_uniques $fasta_seqs_filtered/*.fa -fastaout $unique_seqs/unique.fa -sizeout -relabel Uniq
+
+echo ""
+figlet -f digital OUTPUT FILES:
+echo $fasta_seqs_filtered
+echo $fasta_seqs_discarded
+echo ""
+
+# -------------------------------------------------------DISCARDING SINGLETONS-------------------------------------------------------
+
+echo ""
+figlet -f bubble Step 6 
+figlet -f small Discarding singletons                                                                                                                                                                                 
+echo ""
+
+echo ""
+figlet -f digital CREATING FILTERED SEQUENCE DIRECTORIES
+echo ""
+
+mkdir $no_singletons
+
+$usearch10 -sortbysize $unique_seqs/unique.fa -fastaout $no_singletons/no_singletons.fa -minsize 2
+
+echo ""
+figlet -f digital OUTPUT FILES:
+echo $no_singletons
+echo ""
+
+# -------------------------------------------------CHIMERA FILTERING AND CLUSTERING OTUS-------------------------------------------------
+
+echo ""
+figlet -f bubble Step 7 
+figlet -f small Filtering chimeras and clustering OTUs                                                                                                                                                                                 
+echo ""
+
+echo ""
+figlet -f digital CREATING OTU DIRECTORY
+echo ""
+
+# mkdir $OTUs
+
+# $usearch10 -cluster_otus $no_singletons/no_singletons.fa -otus $OTUs/otus.fa -uparseout $OTUs/8_uparse.txt -relabel OTU
+
+echo ""
+figlet -f digital OUTPUT FILES:
+echo $OTUs
+echo 7_uparse.txt
+echo ""
+
+# ------------------------------------------------CHIMERA FILTERING AND DENOISING ZOTUS------------------------------------------------
+
+echo ""
+figlet -f bubble Step 8 
+figlet -f small Filtering chimeras and clustering ZOTUs                                                                                                                                                                                 
+echo ""
+
+echo ""
+figlet -f digital CREATING ZOTU DIRECTORY
+echo ""
+
+mkdir $ZOTUs
+
+$usearch10 -unoise3 $no_singletons/no_singletons.fa -zotus $ZOTUs/zotus.fa -tabbedout $ZOTUs/8_unoise3.txt
+
+echo ""
+figlet -f digital OUTPUT FILES:
+echo $ZOTUs
+echo 8_unoise3.txt
+echo ""
+
+# --------------------------------------------------------CONSTRUCTING OTU TABLE--------------------------------------------------------
+
+echo ""
+figlet -f bubble Step 9 
+figlet -f small Creating OTU table                                                                                                                                                                                
+echo ""
+
+echo ""
+figlet -f digital CREATING OTU TABLE DIRECTORY                                                                                                                                                                           
+echo ""
+
+mkdir $otu_table
+mkdir $zotu_table
+
+$usearch10 -otutab $truncated_seqs/primers_truncated.fq -otus $OTUs/otus.fa -otutabout $otu_table/9_otutab.txt -biomout $otu_table/9_otutab.json \
+-mapout $otu_table/9_map.txt -notmatchedfq $otu_table/9_unmapped.fq -dbmatched $otu_table/9_otus_with_sizes.fa -sizeout
+
+echo ""
+figlet -f digital OUTPUT FILES:
+echo 9_otutab.txt
+echo 9_otutab.json
+echo 9_map.txt
+echo 9_unmapped.fa
+echo 9_otus_with_sizes.fa
+echo ""
+
+# --------------------------------------------------------CONSTRUCTING ZOTU TABLE--------------------------------------------------------
+
+echo ""
+figlet -f bubble Step 10 
+figlet -f small Creating ZOTU table                                                                                                                                                                                 
+echo ""
+
+echo ""
+figlet -f digital CREATING ZOTU TABLE DIRECTORY                                                                                                                                                                           
+echo ""
+
+$usearch10 -otutab $truncated_seqs/primers_truncated.fq -zotus $ZOTUs/zotus.fa -otutabout $zotu_table/10_zotutab.txt \
+-biomout $zotu_table/10_zotutab.json -mapout $zotu_table/10_map.txt -notmatchedfq $zotu_table/10_unmapped.fq \
+-dbmatched $zotu_table/10_zotus_with_sizes.fa -sizeout -keep_annots
+
+echo ""
+figlet -f digital OUTPUT FILES:
+echo 10_zotutab.txt
+echo 10_zotutab.json
+echo 10_map.txt
+echo 10_unmapped.fa
+echo 10_zotus_with_sizes.fa
+echo ""
