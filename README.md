@@ -9,11 +9,15 @@ Before running the shell scripts...
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 1. Install required software:
+
 USEARCH v10.0 - https://www.drive5.com/usearch/manual10/
+
 USEARCH v8.1 - https://drive5.com/usearch/manual8.1/
+
 USEARCH installation instructions: https://drive5.com/usearch/manual8.1/install.html
 
 Optional software installation: http://www.figlet.org/
+
 Figlet is not required, it just makes command line a little more fun :) 
 
 Note! These shells were written using a Linux system. For Windows, replace forward-slashes with backslashes.
@@ -21,7 +25,11 @@ Note! These shells were written using a Linux system. For Windows, replace forwa
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 2. Set $PATH variables for the different USEARCH versions, otherwise you need to specify the full path to the USEARCH programs in each script. 
+
 For help, see:
+
 https://en.wikipedia.org/wiki/PATH_(variable)
+
 https://linuxize.com/post/how-to-add-directory-to-path-in-linux/
+
 https://helpdeskgeek.com/windows-10/add-windows-path-environment-variable/
